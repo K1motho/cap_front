@@ -19,6 +19,14 @@ const Payment = () => {
   const [successMsg, setSuccessMsg] = useState('');
   const [showQR, setShowQR] = useState(false);
 
+  // 🚨 Redirect to login if not authenticated
+  useEffect(() => {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      navigate('/login');
+    }
+  }, [navigate]);
+
   useEffect(() => {
     const fetchEvent = async () => {
       try {

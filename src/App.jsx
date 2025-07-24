@@ -15,6 +15,8 @@ import Payment from './pages/Payment';
 import Notifications from './pages/Notifications';
 import ErrorPage from './pages/Error404';
 import Wishlist from './pages/Wishlist';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 // Single layout wrapper for all routes
 const Layout = ({ children }) => (
@@ -35,6 +37,8 @@ const App = () => {
       <Route path="/chat" element={<Layout><ChatFriend /></Layout>} />
       <Route path="/friendprofile" element={<Layout><FriendProfile /></Layout>} />
       <Route path="/login" element={<Layout><Login /></Layout>} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+       <Route path="/reset-password/:uidb64/:token/" element={<ResetPassword />} />
       <Route path="/register" element={<Layout><Register /></Layout>} />
       <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
       <Route path="*" element={<Layout><ErrorPage /></Layout>} />

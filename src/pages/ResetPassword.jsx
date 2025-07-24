@@ -1,57 +1,42 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import axios from '../utils';
 
-// Simple JWT decode function
-function parseJwt(token) {
-  try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    );
-    return JSON.parse(jsonPayload);
-  } catch {
-    return null;
-  }
-}
-
-const Login = () => {
+const ResetPassword = () => {
+  const { uidb64, token } = useParams();
   const navigate = useNavigate();
 
-  const [username, setUsername] = useState('');
+  const backendUrl = import.meta.env.VITE_BACKEND_URL;
+
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState(null);
+  const [message, setMessage] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+    setMessage(null);
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const response = await axios.post('auth/login/', { username, password });
-
-      if (response.data.access && response.data.refresh) {
-        localStorage.setItem('access_token', response.data.access);
-        localStorage.setItem('refresh_token', response.data.refresh);
-
-        const decoded = parseJwt(response.data.access);
-        if (decoded && decoded.user_id) {
-          localStorage.setItem('userId', decoded.user_id);
-        } else {
-          console.warn('Could not extract userId from token');
-        }
-
-        navigate('/dashboard', { replace: true });
-      } else {
-        setError('Login failed: Invalid response');
-      }
+      const response = await axios.post(
+        `${backendUrl}/api/reset-password/${uidb64}/${token}/`,
+        { password }
+      );
+      setMessage(response.data.message || 'Password reset successful. Redirecting to login...');
+      setTimeout(() => {
+        navigate('/login');
+      }, 3000);
     } catch (err) {
-      setError(err.response?.data?.detail || 'Login failed: Check your credentials');
+      setError(err.response?.data?.error || 'Invalid or expired reset link.');
     } finally {
       setLoading(false);
     }
@@ -87,50 +72,31 @@ const Login = () => {
             boxShadow: '0 0 20px rgba(0, 150, 255, 0.7)',
             width: '100%',
             maxWidth: '450px',
+            textAlign: 'center',
           }}
         >
           <h2
             style={{
-              textAlign: 'center',
-              marginBottom: '25px',
               color: '#00bfff',
               textShadow: '0 0 8px #00bfff',
+              marginBottom: '25px',
             }}
           >
-            Login
+            Reset Password
           </h2>
 
-          <form
-            onSubmit={handleSubmit}
-            style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}
-          >
-            <label>Username:</label>
-            <input
-              type="text"
-              placeholder="Username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-              style={{
-                padding: '10px',
-                borderRadius: '6px',
-                border: '2px solid #00bfff',
-                backgroundColor: '#222',
-                color: '#f0f0f0',
-                outline: 'none',
-                fontSize: '1rem',
-                boxShadow: '0 0 10px #00bfff',
-                transition: 'border-color 0.3s ease',
-              }}
-            />
-
-            <label>Password:</label>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            <label htmlFor="password" style={{ textAlign: 'left' }}>
+              New Password:
+            </label>
             <input
               type="password"
-              placeholder="Password"
+              id="password"
+              placeholder="Enter new password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              minLength={6}
               style={{
                 padding: '10px',
                 borderRadius: '6px',
@@ -144,26 +110,34 @@ const Login = () => {
               }}
             />
 
-            {/* Forgot Password Link */}
-            <div style={{ textAlign: 'right', marginTop: '-10px', marginBottom: '10px' }}>
-              <Link
-                to="/forgot-password"
-                style={{
-                  color: '#00bfff',
-                  textDecoration: 'underline',
-                  fontWeight: '500',
-                  fontSize: '0.9rem',
-                }}
-              >
-                Forgot Password?
-              </Link>
-            </div>
+            <label htmlFor="confirmPassword" style={{ textAlign: 'left' }}>
+              Confirm New Password:
+            </label>
+            <input
+              type="password"
+              id="confirmPassword"
+              placeholder="Confirm new password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              minLength={6}
+              style={{
+                padding: '10px',
+                borderRadius: '6px',
+                border: '2px solid #00bfff',
+                backgroundColor: '#222',
+                color: '#f0f0f0',
+                outline: 'none',
+                fontSize: '1rem',
+                boxShadow: '0 0 10px #00bfff',
+                transition: 'border-color 0.3s ease',
+              }}
+            />
 
             <button
               type="submit"
               disabled={loading}
               style={{
-                marginTop: '10px',
                 padding: '12px',
                 borderRadius: '8px',
                 border: 'none',
@@ -177,38 +151,29 @@ const Login = () => {
                 opacity: loading ? 0.6 : 1,
               }}
             >
-              {loading ? 'Logging in...' : 'Login'}
+              {loading ? 'Resetting...' : 'Reset Password'}
             </button>
           </form>
 
-          <button
-            type="button"
-            onClick={() => navigate('/register', { replace: true })}
-            style={{
-              width: '100%',
-              marginTop: '15px',
-              padding: '12px',
-              borderRadius: '8px',
-              border: 'none',
-              backgroundColor: '#222',
-              color: '#00bfff',
-              fontWeight: 'bold',
-              fontSize: '1rem',
-              cursor: 'pointer',
-              boxShadow: '0 0 10px #00bfff',
-              transition: 'background-color 0.3s ease',
-            }}
-          >
-            Don't have an account? Sign Up
-          </button>
+          {message && (
+            <p
+              style={{
+                marginTop: '20px',
+                color: '#4CAF50',
+                fontWeight: 'bold',
+                textShadow: '0 0 5px #4CAF50',
+              }}
+            >
+              {message}
+            </p>
+          )}
 
           {error && (
             <p
               style={{
-                marginTop: '15px',
+                marginTop: '20px',
                 color: '#ff4c4c',
                 fontWeight: 'bold',
-                textAlign: 'center',
                 textShadow: '0 0 5px #ff4c4c',
               }}
             >
@@ -221,4 +186,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default ResetPassword;
