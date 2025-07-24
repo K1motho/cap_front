@@ -1,12 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
 const Register = () => {
   const navigate = useNavigate();
-
-  // Use env variables here
-  const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
   const [formData, setFormData] = useState({
@@ -15,41 +12,68 @@ const Register = () => {
     password: '',
     confirmPassword: '',
   });
-  const [otp, setOtp] = useState('');
-  const [showOtp, setShowOtp] = useState(false);
-  const [pendingEmail, setPendingEmail] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [usernameError, setUsernameError] = useState('');
+  const [emailError, setEmailError] = useState('');
 
-  const handleGoogleResponse = async (response) => {
+  // JWT decoder
+  const parseJwt = (token) => {
     try {
-      const res = await axios.post(`${BACKEND_URL}/api/auth/google/`, {
-        token: response.credential,
-      });
-      setPendingEmail(res.data.email);
-      setShowOtp(true);
-      setSuccess('OTP sent to your email from Google sign-in.');
-    } catch (err) {
-      console.error(err);
-      setError('Google sign-in failed.');
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split('')
+          .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join('')
+      );
+      return JSON.parse(jsonPayload);
+    } catch {
+      return null;
     }
   };
 
-  useEffect(() => {
-    if (window.google) {
-      window.google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: handleGoogleResponse,
-      });
-      window.google.accounts.id.renderButton(
-        document.getElementById('googleSignInDiv'),
-        { theme: 'outline', size: 'large' }
-      );
-    }
-  }, [GOOGLE_CLIENT_ID]);
-
   const handleChange = (e) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    setError('');
+    setSuccess('');
+    if (e.target.name === 'username') setUsernameError('');
+    if (e.target.name === 'email') setEmailError('');
+  };
+
+  // Check username availability onBlur
+  const checkUsername = async () => {
+    if (!formData.username) return;
+    try {
+      const res = await axios.get(`${BACKEND_URL}/api/auth/check-username`, {
+        params: { username: formData.username },
+      });
+      if (!res.data.available) {
+        setUsernameError('Username is already taken');
+      } else {
+        setUsernameError('');
+      }
+    } catch {
+      setUsernameError('Could not verify username availability');
+    }
+  };
+
+  // Check email availability onBlur
+  const checkEmail = async () => {
+    if (!formData.email) return;
+    try {
+      const res = await axios.get(`${BACKEND_URL}/api/auth/check-email`, {
+        params: { email: formData.email },
+      });
+      if (!res.data.available) {
+        setEmailError('Email is already registered');
+      } else {
+        setEmailError('');
+      }
+    } catch {
+      setEmailError('Could not verify email availability');
+    }
   };
 
   const handleRegister = async (e) => {
@@ -62,16 +86,36 @@ const Register = () => {
       return;
     }
 
+    if (usernameError || emailError) {
+      setError('Please fix the errors before registering');
+      return;
+    }
+
     try {
       const { username, email, password } = formData;
-      await axios.post(`${BACKEND_URL}/api/auth/register/`, {
+      const res = await axios.post(`${BACKEND_URL}/api/auth/register/`, {
         username,
         email,
         password,
       });
-      setPendingEmail(email);
-      setShowOtp(true);
-      setSuccess('OTP sent to your email. Please verify.');
+
+      const { access, refresh } = res.data;
+
+      if (access && refresh) {
+        localStorage.setItem('access_token', access);
+        localStorage.setItem('refresh_token', refresh);
+
+        const decoded = parseJwt(access);
+        if (decoded && decoded.user_id) {
+          localStorage.setItem('userId', decoded.user_id);
+        }
+
+        setSuccess('Registration successful! Redirecting...');
+        navigate('/dashboard');
+      } else {
+        setSuccess('Registration successful! Please login.');
+        setTimeout(() => navigate('/login'), 1500);
+      }
     } catch (err) {
       setError(
         err.response?.data?.detail ||
@@ -81,52 +125,86 @@ const Register = () => {
     }
   };
 
-  const handleOtpSubmit = async () => {
-    setError('');
-    try {
-      await axios.post(`${BACKEND_URL}/api/auth/verify-otp/`, {
-        email: pendingEmail,
-        otp: otp,
-      });
-      setSuccess('OTP verified. Redirecting to login...');
-      setTimeout(() => navigate('/login'), 1500);
-    } catch (err) {
-      setError(
-        err.response?.data?.detail ||
-          JSON.stringify(err.response?.data) ||
-          'OTP verification failed.'
-      );
-    }
-  };
-
   return (
-    <div>
-      <h2>Register</h2>
+    <>
+      <style>{`
+        html, body {
+          margin: 0;
+          padding: 0;
+          background-color: #1a001a;
+          font-family: 'Poppins', sans-serif;
+        }
+      `}</style>
 
-      {!showOtp && (
-        <form onSubmit={handleRegister}>
-          <div>
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: '20px',
+          boxSizing: 'border-box',
+        }}
+      >
+        <div
+          style={{
+            backgroundColor: '#121212',
+            padding: '30px 40px',
+            borderRadius: '12px',
+            boxShadow: '0 0 20px rgba(0, 150, 255, 0.7)',
+            width: '100%',
+            maxWidth: '450px',
+            color: '#f0f0f0',
+          }}
+        >
+          <h2 style={{ textAlign: 'center', marginBottom: '25px', color: '#00bfff', textShadow: '0 0 8px #00bfff' }}>
+            Register
+          </h2>
+
+          <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
             <label>Username:</label>
             <input
               name="username"
               value={formData.username}
               onChange={handleChange}
+              onBlur={checkUsername}
               required
+              style={{
+                padding: '10px',
+                borderRadius: '6px',
+                border: usernameError ? '2px solid #ff4c4c' : '2px solid #00bfff',
+                backgroundColor: '#222',
+                color: '#f0f0f0',
+                outline: 'none',
+                fontSize: '1rem',
+                boxShadow: usernameError ? '0 0 10px #ff4c4c' : '0 0 10px #00bfff',
+                transition: 'border-color 0.3s ease',
+              }}
             />
-          </div>
+            {usernameError && <p style={{ color: '#ff4c4c', marginTop: '-10px' }}>{usernameError}</p>}
 
-          <div>
             <label>Email:</label>
             <input
               name="email"
               type="email"
               value={formData.email}
               onChange={handleChange}
+              onBlur={checkEmail}
               required
+              style={{
+                padding: '10px',
+                borderRadius: '6px',
+                border: emailError ? '2px solid #ff4c4c' : '2px solid #00bfff',
+                backgroundColor: '#222',
+                color: '#f0f0f0',
+                outline: 'none',
+                fontSize: '1rem',
+                boxShadow: emailError ? '0 0 10px #ff4c4c' : '0 0 10px #00bfff',
+                transition: 'border-color 0.3s ease',
+              }}
             />
-          </div>
+            {emailError && <p style={{ color: '#ff4c4c', marginTop: '-10px' }}>{emailError}</p>}
 
-          <div>
             <label>Password:</label>
             <input
               name="password"
@@ -134,10 +212,19 @@ const Register = () => {
               value={formData.password}
               onChange={handleChange}
               required
+              style={{
+                padding: '10px',
+                borderRadius: '6px',
+                border: '2px solid #00bfff',
+                backgroundColor: '#222',
+                color: '#f0f0f0',
+                outline: 'none',
+                fontSize: '1rem',
+                boxShadow: '0 0 10px #00bfff',
+                transition: 'border-color 0.3s ease',
+              }}
             />
-          </div>
 
-          <div>
             <label>Confirm Password:</label>
             <input
               name="confirmPassword"
@@ -145,38 +232,70 @@ const Register = () => {
               value={formData.confirmPassword}
               onChange={handleChange}
               required
+              style={{
+                padding: '10px',
+                borderRadius: '6px',
+                border: '2px solid #00bfff',
+                backgroundColor: '#222',
+                color: '#f0f0f0',
+                outline: 'none',
+                fontSize: '1rem',
+                boxShadow: '0 0 10px #00bfff',
+                transition: 'border-color 0.3s ease',
+              }}
             />
-          </div>
 
-          <button type="submit">Register</button>
-        </form>
-      )}
+            <button
+              type="submit"
+              disabled={!!usernameError || !!emailError}
+              style={{
+                marginTop: '20px',
+                padding: '12px',
+                borderRadius: '8px',
+                border: 'none',
+                backgroundColor: '#00bfff',
+                color: '#121212',
+                fontWeight: 'bold',
+                fontSize: '1.1rem',
+                cursor: 'pointer',
+                boxShadow: '0 0 15px #00bfff',
+                transition: 'background-color 0.3s ease',
+                opacity: !!usernameError || !!emailError ? 0.6 : 1,
+              }}
+            >
+              Register
+            </button>
+          </form>
 
-      {showOtp && (
-        <div>
-          <p>
-            Enter OTP sent to: <strong>{pendingEmail}</strong>
-          </p>
-          <input
-            type="text"
-            value={otp}
-            onChange={(e) => setOtp(e.target.value)}
-            placeholder="Enter OTP"
-          />
-          <button onClick={handleOtpSubmit}>Verify OTP</button>
+          {error && (
+            <p
+              style={{
+                marginTop: '15px',
+                color: '#ff4c4c',
+                fontWeight: 'bold',
+                textAlign: 'center',
+                textShadow: '0 0 5px #ff4c4c',
+              }}
+            >
+              {error}
+            </p>
+          )}
+          {success && (
+            <p
+              style={{
+                marginTop: '15px',
+                color: '#00ffea',
+                fontWeight: 'bold',
+                textAlign: 'center',
+                textShadow: '0 0 8px #00bfff',
+              }}
+            >
+              {success}
+            </p>
+          )}
         </div>
-      )}
-
-      <hr />
-
-      <div>
-        <h4>Or register with Google:</h4>
-        <div id="googleSignInDiv"></div>
       </div>
-
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      {success && <p style={{ color: 'green' }}>{success}</p>}
-    </div>
+    </>
   );
 };
 

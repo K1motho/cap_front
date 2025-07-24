@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import QRCode from 'qrcode.react';
+import QRCode from 'react-qr-code';
 
 const FriendsPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -11,49 +11,84 @@ const FriendsPage = () => {
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [errorFriends, setErrorFriends] = useState(null);
   const [errorEvents, setErrorEvents] = useState(null);
-
   const [selectedFriend, setSelectedFriend] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [errorProfile, setErrorProfile] = useState(null);
   const [profileData, setProfileData] = useState(null);
 
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('access_token');
   const userId = localStorage.getItem('userId');
   const navigate = useNavigate();
+  const API_BASE = import.meta.env.VITE_BACKEND_URL;
 
-  // Fetch friends list
   useEffect(() => {
     if (!token) return;
-    setLoadingFriends(true);
-    axios
-      .get('/api/friends/', { headers: { Authorization: `Bearer ${token}` } })
-      .then(res => {
-        setFriends(res.data);
-        setLoadingFriends(false);
-      })
-      .catch(() => {
+
+    const fetchFriends = async () => {
+      setLoadingFriends(true);
+      try {
+        const res = await axios.get(`${API_BASE}/api/friends/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        console.log('API /api/friends/ response:', res.data);
+
+        if (res.data && Array.isArray(res.data)) {
+          setFriends(res.data);
+          setErrorFriends(null);
+        } else if (res.data && Array.isArray(res.data.friends)) {
+          setFriends(res.data.friends);
+          setErrorFriends(null);
+        } else {
+          setFriends([]);
+          setErrorFriends('Invalid friends data format.');
+          console.error('Invalid friends data format:', res.data);
+        }
+      } catch (error) {
         setErrorFriends('Failed to load friends.');
+        setFriends([]);
+        console.error('Error fetching friends:', error);
+      } finally {
         setLoadingFriends(false);
-      });
-  }, [token]);
+      }
+    };
 
-  // Fetch friend events
+    fetchFriends();
+  }, [token, API_BASE]);
+
   useEffect(() => {
     if (!token) return;
-    setLoadingEvents(true);
-    axios
-      .get('/api/friend-events/', { headers: { Authorization: `Bearer ${token}` } })
-      .then(res => {
-        setFriendEvents(res.data);
-        setLoadingEvents(false);
-      })
-      .catch(() => {
-        setErrorEvents('Failed to load friend events.');
-        setLoadingEvents(false);
-      });
-  }, [token]);
 
-  // Load profile data when selectedFriend changes
+    const fetchFriendEvents = async () => {
+      setLoadingEvents(true);
+      try {
+        const res = await axios.get(`${API_BASE}/api/friend-events/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        console.log('API /api/friend-events/ response:', res.data);
+
+        if (res.data && Array.isArray(res.data)) {
+          setFriendEvents(res.data);
+          setErrorEvents(null);
+        } else if (res.data && Array.isArray(res.data.events)) {
+          setFriendEvents(res.data.events);
+          setErrorEvents(null);
+        } else {
+          setFriendEvents([]);
+          setErrorEvents('Invalid friend events data format.');
+          console.error('Invalid friend events data format:', res.data);
+        }
+      } catch (error) {
+        setErrorEvents('Failed to load friend events.');
+        setFriendEvents([]);
+        console.error('Error fetching friend events:', error);
+      } finally {
+        setLoadingEvents(false);
+      }
+    };
+
+    fetchFriendEvents();
+  }, [token, API_BASE]);
+
   useEffect(() => {
     if (!selectedFriend) {
       setProfileData(null);
@@ -61,68 +96,99 @@ const FriendsPage = () => {
       setLoadingProfile(false);
       return;
     }
+
     if (!token) {
       navigate('/login');
       return;
     }
 
-    setLoadingProfile(true);
-    setErrorProfile(null);
-
-    axios
-      .get(`/api/friends/${selectedFriend.id}/`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(res => {
+    const fetchProfile = async () => {
+      setLoadingProfile(true);
+      try {
+        const res = await axios.get(`${API_BASE}/api/friends/${selectedFriend.id}/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        console.log(`API /api/friends/${selectedFriend.id}/ response:`, res.data);
         setProfileData(res.data);
-        setLoadingProfile(false);
-      })
-      .catch(() => {
+        setErrorProfile(null);
+      } catch (error) {
         setErrorProfile('Failed to load friend profile.');
+        setProfileData(null);
+        console.error('Error fetching friend profile:', error);
+      } finally {
         setLoadingProfile(false);
-      });
-  }, [selectedFriend, token, navigate]);
+      }
+    };
 
-  // Filter friends by search
-  const filteredFriends = friends.filter(f =>
-    f.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+    fetchProfile();
+  }, [selectedFriend, token, navigate, API_BASE]);
+
+  const filteredFriends = Array.isArray(friends)
+    ? friends.filter(f =>
+        (f.name || '').toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : [];
 
   const handleUnfriend = async () => {
     if (!profileData) return;
     try {
-      await axios.delete(`/api/friends/${profileData.id}/`, {
+      console.log('Unfriending user with id:', profileData.id);
+      await axios.delete(`${API_BASE}/api/friends/${profileData.id}/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       alert('Friend removed.');
       setSelectedFriend(null);
-      // Refresh friends list
-      setLoadingFriends(true);
-      const res = await axios.get('/api/friends/', { headers: { Authorization: `Bearer ${token}` } });
-      setFriends(res.data);
-      setLoadingFriends(false);
-    } catch {
+      const res = await axios.get(`${API_BASE}/api/friends/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      console.log('API /api/friends/ (after unfriend) response:', res.data);
+      setFriends(Array.isArray(res.data) ? res.data : []);
+    } catch (error) {
       alert('Failed to remove friend.');
+      console.error('Error unfriending:', error);
     }
   };
 
   const handleChat = () => {
     if (!profileData) return;
-    // Navigate to separate chat page with friend id in state
+    console.log('Navigating to chat with user id:', profileData.id);
     navigate('/chat', { state: { chatWith: profileData.id } });
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+        backgroundColor: '#f0f6f0',
+        color: '#2d4a2d',
+      }}
+    >
       {/* Navbar */}
       <nav
         style={{
-          padding: '10px',
-          borderBottom: '1px solid #ccc',
+          padding: '12px 24px',
+          borderBottom: '3px solid #4caf50',
           display: 'flex',
           alignItems: 'center',
-          gap: '15px',
+          gap: '18px',
+          backgroundColor: '#e8f5e9',
+          boxShadow: '0 2px 6px rgb(0 0 0 / 0.1)',
+          fontWeight: '600',
         }}
       >
-        <Link to="/" style={{ fontSize: '24px', textDecoration: 'none' }}>
+        <Link
+          to="/"
+          style={{
+            fontSize: '26px',
+            textDecoration: 'none',
+            color: '#2e7d32',
+            fontWeight: '700',
+            userSelect: 'none',
+          }}
+        >
           🏠 Home
         </Link>
         <input
@@ -130,168 +196,378 @@ const FriendsPage = () => {
           placeholder="Search friends..."
           value={searchTerm}
           onChange={e => setSearchTerm(e.target.value)}
-          style={{ flexGrow: 1, padding: '5px' }}
+          style={{
+            flexGrow: 1,
+            padding: '9px 16px',
+            borderRadius: '8px',
+            border: '2px solid #4caf50',
+            fontSize: '16px',
+            outlineColor: '#66bb6a',
+            transition: 'border-color 0.3s',
+          }}
+          onFocus={e => (e.target.style.borderColor = '#66bb6a')}
+          onBlur={e => (e.target.style.borderColor = '#4caf50')}
         />
       </nav>
 
-      {/* Main content */}
-      <div style={{ flexGrow: 1, display: 'flex', padding: '10px', gap: '20px' }}>
-        {/* Left: QR Code Invite */}
+      {/* Content area */}
+      <div
+        style={{
+          flexGrow: 1,
+          display: 'flex',
+          gap: '24px',
+          padding: '20px 30px',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Left panel: QR Code + Friends List */}
         <div
           style={{
-            width: '250px',
-            border: '1px solid #ccc',
-            padding: '15px',
-            borderRadius: '8px',
+            width: '280px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '24px',
           }}
         >
-          <h3>Invite a Friend</h3>
-          {userId ? (
-            <>
-              <QRCode value={`https://wapinalini.com/invite/${userId}`} size={200} />
-              <p style={{ wordBreak: 'break-word', marginTop: '10px' }}>
-                https://wapinalini.com/invite/{userId}
+          {/* QR Code box */}
+          <div
+            style={{
+              borderRadius: '12px',
+              backgroundColor: 'white',
+              padding: '20px',
+              boxShadow: '0 4px 14px rgba(76,175,80,0.2)',
+              textAlign: 'center',
+              userSelect: 'none',
+            }}
+          >
+            <h3 style={{ color: '#388e3c', marginBottom: '18px', fontWeight: '700' }}>
+              Invite a Friend
+            </h3>
+            {userId ? (
+              <>
+                <QRCode value={`https://wapinalini.com/invite/${userId}`} size={220} />
+                <p
+                  style={{
+                    marginTop: '16px',
+                    fontSize: '13px',
+                    color: '#4caf50',
+                    wordBreak: 'break-word',
+                    userSelect: 'text',
+                  }}
+                >
+                  https://wapinalini.com/invite/{userId}
+                </p>
+              </>
+            ) : (
+              <p style={{ color: '#d32f2f', fontWeight: '600' }}>
+                User ID not found. Please login again.
               </p>
-            </>
-          ) : (
-            <p>User ID not found. Please login again.</p>
-          )}
+            )}
+          </div>
+
+          {/* Friends list */}
+          <div
+            style={{
+              flexGrow: 1,
+              borderRadius: '12px',
+              backgroundColor: 'white',
+              boxShadow: '0 4px 14px rgba(76,175,80,0.2)',
+              overflowY: 'auto',
+              padding: '16px 20px',
+            }}
+          >
+            <h3
+              style={{
+                marginBottom: '14px',
+                color: '#388e3c',
+                fontWeight: '700',
+                userSelect: 'none',
+              }}
+            >
+              Friends
+            </h3>
+            {loadingFriends ? (
+              <p style={{ color: '#666' }}>Loading friends...</p>
+            ) : errorFriends ? (
+              <p style={{ color: '#d32f2f', fontWeight: '600' }}>{errorFriends}</p>
+            ) : filteredFriends.length === 0 ? (
+              <p style={{ color: '#555' }}>No friends found.</p>
+            ) : (
+              filteredFriends.map(friend => (
+                <div
+                  key={friend.id}
+                  onClick={() => setSelectedFriend(friend)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '14px',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    backgroundColor:
+                      selectedFriend?.id === friend.id ? '#dcedc8' : 'transparent',
+                    transition: 'background-color 0.15s ease',
+                  }}
+                  onMouseEnter={e =>
+                    (e.currentTarget.style.backgroundColor =
+                      selectedFriend?.id === friend.id ? '#dcedc8' : '#f1f8f1')
+                  }
+                  onMouseLeave={e =>
+                    (e.currentTarget.style.backgroundColor =
+                      selectedFriend?.id === friend.id ? '#dcedc8' : 'transparent')
+                  }
+                >
+                  {friend.avatar ? (
+                    <img
+                      src={friend.avatar}
+                      alt={friend.name}
+                      width={44}
+                      height={44}
+                      style={{
+                        borderRadius: '50%',
+                        border: '2.5px solid #4caf50',
+                        objectFit: 'cover',
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: '50%',
+                        backgroundColor: '#c8e6c9',
+                        border: '2.5px solid #4caf50',
+                      }}
+                    />
+                  )}
+                  <div
+                    style={{
+                      fontWeight: '600',
+                      fontSize: '16px',
+                      color: '#2e7d32',
+                      userSelect: 'none',
+                    }}
+                  >
+                    {friend.name}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
 
-        {/* Right: Friends List */}
+        {/* Right panel: Profile + Friend Events */}
         <div
           style={{
             flexGrow: 1,
-            border: '1px solid #ccc',
-            borderRadius: '8px',
-            padding: '15px',
-            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '20px',
+            height: '100%',
           }}
         >
-          <h3>Friends</h3>
-          {loadingFriends ? (
-            <p>Loading friends...</p>
-          ) : errorFriends ? (
-            <p>{errorFriends}</p>
-          ) : filteredFriends.length === 0 ? (
-            <p>No friends found.</p>
-          ) : (
-            filteredFriends.map(friend => (
-              <div
-                key={friend.id}
-                style={{
-                  padding: '10px',
-                  borderBottom: '1px solid #eee',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  backgroundColor: selectedFriend?.id === friend.id ? '#f0f0f0' : '',
-                }}
-                onClick={() => setSelectedFriend(friend)}
-              >
-                {friend.avatar ? (
+          {/* Friend Profile */}
+          <section
+            style={{
+              flexBasis: '250px',
+              flexShrink: 0,
+              borderRadius: '12px',
+              backgroundColor: 'white',
+              boxShadow: '0 4px 20px rgba(76,175,80,0.15)',
+              padding: '22px 28px',
+              overflowY: 'auto',
+            }}
+          >
+            {loadingProfile ? (
+              <p style={{ color: '#666' }}>Loading friend profile...</p>
+            ) : errorProfile ? (
+              <p style={{ color: '#d32f2f', fontWeight: '600' }}>{errorProfile}</p>
+            ) : profileData ? (
+              <>
+                <h2
+                  style={{
+                    color: '#388e3c',
+                    marginBottom: '14px',
+                    fontWeight: '700',
+                    userSelect: 'none',
+                  }}
+                >
+                  {profileData.name}&apos;s Profile
+                </h2>
+                {profileData.avatar && (
                   <img
-                    src={friend.avatar}
-                    alt={friend.name}
-                    width={40}
-                    height={40}
-                    style={{ borderRadius: '50%' }}
-                  />
-                ) : (
-                  <div
+                    src={profileData.avatar}
+                    alt="Avatar"
+                    width={110}
+                    height={110}
                     style={{
-                      width: 40,
-                      height: 40,
-                      backgroundColor: '#ccc',
-                      borderRadius: '50%',
+                      borderRadius: '14px',
+                      border: '3px solid #4caf50',
+                      marginBottom: '14px',
+                      objectFit: 'cover',
                     }}
                   />
                 )}
-                <div>
-                  <strong>{friend.name}</strong>
+                <p
+                  style={{
+                    fontSize: '15px',
+                    marginBottom: '10px',
+                    userSelect: 'text',
+                  }}
+                >
+                  <strong>Email:</strong>{' '}
+                  <span style={{ color: '#2e7d32' }}>{profileData.email}</span>
+                </p>
+
+                <h3
+                  style={{
+                    marginTop: '24px',
+                    marginBottom: '12px',
+                    color: '#388e3c',
+                    fontWeight: '700',
+                    userSelect: 'none',
+                  }}
+                >
+                  Mutual Events
+                </h3>
+                {profileData.mutual_events?.length > 0 ? (
+                  <ul
+                    style={{
+                      paddingLeft: '22px',
+                      maxHeight: '90px',
+                      overflowY: 'auto',
+                      color: '#2e7d32',
+                      fontSize: '14px',
+                      marginBottom: '12px',
+                      userSelect: 'text',
+                    }}
+                  >
+                    {profileData.mutual_events.map(event => (
+                      <li key={event.id}>
+                        {event.name} — {event.date}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>No mutual events.</p>
+                )}
+
+                <div style={{ marginTop: '18px', display: 'flex', gap: '14px' }}>
+                  <button
+                    onClick={handleChat}
+                    style={{
+                      flexGrow: 1,
+                      backgroundColor: '#4caf50',
+                      color: 'white',
+                      border: 'none',
+                      padding: '12px 0',
+                      borderRadius: '8px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.25s',
+                      userSelect: 'none',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#388e3c')}
+                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#4caf50')}
+                  >
+                    Message
+                  </button>
+
+                  <button
+                    onClick={handleUnfriend}
+                    style={{
+                      flexGrow: 1,
+                      backgroundColor: '#e53935',
+                      color: 'white',
+                      border: 'none',
+                      padding: '12px 0',
+                      borderRadius: '8px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.25s',
+                      userSelect: 'none',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#ab000d')}
+                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#e53935')}
+                  >
+                    Unfriend
+                  </button>
+
+                  <button
+                    onClick={() => setSelectedFriend(null)}
+                    style={{
+                      flexGrow: 1,
+                      backgroundColor: '#9e9e9e',
+                      color: 'white',
+                      border: 'none',
+                      padding: '12px 0',
+                      borderRadius: '8px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.25s',
+                      userSelect: 'none',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#707070')}
+                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#9e9e9e')}
+                  >
+                    Back
+                  </button>
                 </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-
-      {/* Friend Profile / Chat Panel */}
-      <div
-        style={{
-          borderTop: '1px solid #ccc',
-          padding: '10px 15px',
-          height: '250px',
-          overflowY: 'auto',
-          backgroundColor: '#fafafa',
-        }}
-      >
-        {loadingProfile ? (
-          <p>Loading friend profile...</p>
-        ) : errorProfile ? (
-          <p>{errorProfile}</p>
-        ) : profileData ? (
-          <div>
-            <h2>{profileData.name}&apos;s Profile</h2>
-            {profileData.avatar && (
-              <img src={profileData.avatar} alt="Avatar" width="100" height="100" />
+              </>
+            ) : (
+              <p style={{ fontStyle: 'italic', color: '#555' }}>
+                Select a friend to see their profile.
+              </p>
             )}
-            <p>
-              <strong>Email:</strong> {profileData.email}
-            </p>
+          </section>
 
-            <h3>Mutual Events</h3>
-            {profileData.mutual_events?.length > 0 ? (
-              <ul>
-                {profileData.mutual_events.map(event => (
+          {/* Friend Events */}
+          <section
+            style={{
+              flexGrow: 1,
+              borderRadius: '12px',
+              backgroundColor: 'white',
+              boxShadow: '0 4px 20px rgba(76,175,80,0.15)',
+              padding: '22px 28px',
+              overflowY: 'auto',
+              userSelect: 'none',
+            }}
+          >
+            <h3
+              style={{
+                marginBottom: '18px',
+                fontWeight: '700',
+                color: '#388e3c',
+                userSelect: 'none',
+              }}
+            >
+              Friend Events
+            </h3>
+            {loadingEvents ? (
+              <p style={{ color: '#666' }}>Loading events...</p>
+            ) : errorEvents ? (
+              <p style={{ color: '#d32f2f', fontWeight: '600' }}>{errorEvents}</p>
+            ) : friendEvents.length === 0 ? (
+              <p style={{ color: '#555' }}>No shared events found.</p>
+            ) : (
+              <ul
+                style={{
+                  margin: 0,
+                  paddingLeft: '22px',
+                  color: '#2e7d32',
+                  fontSize: '14px',
+                  userSelect: 'text',
+                }}
+              >
+                {friendEvents.map(event => (
                   <li key={event.id}>
-                    {event.name} - {event.date}
+                    {event.name} — {event.date}
                   </li>
                 ))}
               </ul>
-            ) : (
-              <p>No mutual events.</p>
             )}
-
-            <button onClick={handleChat} style={{ marginRight: '10px' }}>
-              Message
-            </button>
-            <button onClick={handleUnfriend} style={{ marginRight: '10px' }}>
-              Unfriend
-            </button>
-            <button onClick={() => setSelectedFriend(null)}>Back</button>
-          </div>
-        ) : (
-          <p>Select a friend to see their profile.</p>
-        )}
-      </div>
-
-      {/* Friend Events List */}
-      <div
-        style={{
-          borderTop: '1px solid #ccc',
-          padding: '10px 15px',
-          height: '150px',
-          overflowY: 'auto',
-        }}
-      >
-        <h3>Friend Events</h3>
-        {loadingEvents ? (
-          <p>Loading events...</p>
-        ) : errorEvents ? (
-          <p>{errorEvents}</p>
-        ) : friendEvents.length === 0 ? (
-          <p>No shared events found.</p>
-        ) : (
-          <ul style={{ margin: 0, paddingLeft: '20px' }}>
-            {friendEvents.map(event => (
-              <li key={event.id}>
-                {event.name} - {event.date}
-              </li>
-            ))}
-          </ul>
-        )}
+          </section>
+        </div>
       </div>
     </div>
   );

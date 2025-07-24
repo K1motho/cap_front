@@ -1,129 +1,177 @@
 import React, { useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-// Sidebar links constants
+const BASE_URL = import.meta.env.VITE_BACKEND_URL;
+
 const SIDEBAR_LINKS = [
   { id: 'profile', label: 'Profile' },
   { id: 'attended', label: 'Attended Events' },
   { id: 'chatfriends', label: 'Chat & Friends' },
   { id: 'notifications', label: 'Notifications' },
-  { id: 'home', label: 'Home' }, // Landing page link
+  { id: 'home', label: 'Home' },
 ];
 
-// Dummy Profile component
-const Profile = ({ onEdit }) => {
-  const [profile, setProfile] = useState(null);
-
-  useEffect(() => {
-    // Fetch user profile here
-    const token = localStorage.getItem('token');
-    if (!token) return;
-    axios.get('/api/profile/', {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => setProfile(res.data))
-      .catch(err => console.error('Error fetching profile:', err));
-  }, []);
-
-  if (!profile) return <p>Loading profile...</p>;
+const Profile = ({ onEdit, profile }) => {
+  if (!profile) return <p style={{ color: '#ccc' }}>Loading profile...</p>;
 
   return (
     <div>
-      <h2>Your Profile</h2>
-      <p><strong>Name:</strong> {profile.name}</p>
+      <h2 style={{ color: '#00bfff' }}>Your Profile</h2>
+      <p><strong>Username:</strong> {profile.username}</p>
       <p><strong>Email:</strong> {profile.email}</p>
-      {/* Add more profile fields as needed */}
-      <button onClick={onEdit}>Edit Profile</button>
+      {profile.bio && <p><strong>Bio:</strong> {profile.bio}</p>}
+      {profile.profile_pic && (
+        <div>
+          <strong>Profile Picture:</strong><br />
+          <img
+            src={profile.profile_pic}
+            alt="Profile"
+            style={{ width: '120px', borderRadius: '50%', marginTop: '10px' }}
+          />
+        </div>
+      )}
+      <button onClick={onEdit} style={buttonStyle}>Edit Profile</button>
     </div>
   );
 };
 
-// Dummy EditProfile component
 const EditProfile = ({ profile, onSave, onCancel }) => {
-  const [form, setForm] = useState(profile || { name: '', email: '' });
+  const [form, setForm] = useState({
+    username: profile.username || '',
+    email: profile.email || '',
+    bio: profile.bio || '',
+    profile_pic: null,
+  });
 
-  const handleChange = e => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = e => {
+  const handleFileChange = (e) => {
+    setForm(prev => ({ ...prev, profile_pic: e.target.files[0] }));
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Call API to save profile
-    const token = localStorage.getItem('token');
-    axios.put('/api/profile/', form, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => {
-        onSave(res.data);
-      })
-      .catch(err => console.error('Error saving profile:', err));
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      alert('No token found, please login again.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('username', form.username);
+    formData.append('email', form.email);
+    formData.append('bio', form.bio);
+    if (form.profile_pic) {
+      formData.append('profile_pic', form.profile_pic);
+    }
+
+    try {
+      const res = await axios.put(`${BASE_URL}/api/profile/`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      console.log('Profile saved:', res.data);
+      onSave(res.data);
+    } catch (err) {
+      if (err.response) {
+        console.error('Error response:', err.response.status, err.response.data);
+      } else if (err.request) {
+        console.error('No response received:', err.request);
+      } else {
+        console.error('Request setup error:', err.message);
+      }
+      alert('Failed to save profile. Check console for errors.');
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <h2>Edit Profile</h2>
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+      <h2 style={{ color: '#00bfff' }}>Edit Profile</h2>
       <label>
-        Name:
-        <input name="name" value={form.name} onChange={handleChange} />
+        Username:
+        <input
+          name="username"
+          value={form.username}
+          onChange={handleChange}
+          style={inputStyle}
+          required
+        />
       </label>
-      <br />
       <label>
         Email:
-        <input name="email" value={form.email} onChange={handleChange} />
+        <input
+          name="email"
+          value={form.email}
+          onChange={handleChange}
+          style={inputStyle}
+          type="email"
+          required
+        />
       </label>
-      <br />
-      <button type="submit">Save</button>
-      <button type="button" onClick={onCancel}>Cancel</button>
+      <label>
+        Bio:
+        <textarea
+          name="bio"
+          value={form.bio}
+          onChange={handleChange}
+          rows="4"
+          style={{ ...inputStyle, resize: 'vertical' }}
+        />
+      </label>
+      <label>
+        Profile Picture:
+        <input
+          name="profile_pic"
+          type="file"
+          accept="image/*"
+          onChange={handleFileChange}
+          style={inputStyle}
+        />
+      </label>
+      <div>
+        <button type="submit" style={buttonStyle}>Save</button>
+        <button type="button" onClick={onCancel} style={{ ...buttonStyle, backgroundColor: '#999' }}>Cancel</button>
+      </div>
     </form>
   );
 };
 
-// Dummy Attended Events component
 const AttendedEvents = () => {
   const [events, setEvents] = useState(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    axios.get('/api/attended-events/', {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    const token = localStorage.getItem('access_token');
+    if (!token) return;
+    axios.get(`${BASE_URL}/api/attended-events/`, { headers: { Authorization: `Bearer ${token}` } })
       .then(res => setEvents(res.data))
-      .catch(err => console.error('Error fetching attended events:', err));
+      .catch(err => {
+        if (err.response) {
+          console.error('Attended Events Error:', err.response.status, err.response.data);
+        } else {
+          console.error('Attended Events Fetch Error:', err);
+        }
+      });
   }, []);
 
-  if (!events) return <p>Loading attended events...</p>;
-
-  if (events.length === 0) return <p>No attended events found.</p>;
+  if (!events) return <p style={{ color: '#ccc' }}>Loading attended events...</p>;
+  if (events.length === 0) return <p style={{ color: '#ccc' }}>No attended events found.</p>;
 
   return (
     <div>
-      <h2>Attended Events</h2>
+      <h2 style={{ color: '#00bfff' }}>Attended Events</h2>
       <ul>
         {events.map(ev => (
-          <li key={ev.id}>{ev.name} - {ev.date}</li>
+          <li key={ev.id} style={{ color: '#eee' }}>
+            {ev.name} - {ev.date}
+          </li>
         ))}
       </ul>
-    </div>
-  );
-};
-
-// Dummy ChatFriends component
-const ChatFriends = () => {
-  return (
-    <div>
-      <h2>Chat & Friends</h2>
-      <p>Chat and friend list functionality here.</p>
-    </div>
-  );
-};
-
-// Dummy Notifications component
-const Notifications = () => {
-  return (
-    <div>
-      <h2>Notifications</h2>
-      <p>Notification history and details here.</p>
     </div>
   );
 };
@@ -133,90 +181,138 @@ const Dashboard = () => {
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileData, setProfileData] = useState(null);
 
-  const token = localStorage.getItem('token');
-  if (!token) {
-    // Redirect to login if not logged in
-    return <Navigate to="/Login" />;
-  }
+  const token = localStorage.getItem('access_token');
+  const navigate = useNavigate();
 
-  // Handler for clicking sidebar links
-  const handleSelect = id => {
-    setEditingProfile(false); // Reset edit mode when switching sections
+  useEffect(() => {
+    if (!token) {
+      console.warn('No access token found.');
+      return;
+    }
+
+    axios.get(`${BASE_URL}/api/profile/`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(res => {
+        setProfileData(res.data);
+        console.log('Profile loaded:', res.data);
+      })
+      .catch(err => {
+        if (err.response) {
+          console.error('Profile Error:', err.response.status, err.response.data);
+        } else {
+          console.error('Profile Fetch Error:', err);
+        }
+      });
+  }, [token]);
+
+  if (!token) return <Navigate to="/login" replace />;
+
+  const handleSelect = (id) => {
+    setEditingProfile(false);
+    if (id === 'chatfriends') return navigate('/friendprofile');
+    if (id === 'notifications') return navigate('/notifications');
+    if (id === 'home') return (window.location.href = '/');
     setSelected(id);
   };
 
-  // Handler for starting profile edit
-  const handleEditProfile = () => {
-    setEditingProfile(true);
-  };
+  const handleEditProfile = () => setEditingProfile(true);
 
-  // Handler after profile save
   const handleSaveProfile = (updatedProfile) => {
     setProfileData(updatedProfile);
     setEditingProfile(false);
     setSelected('profile');
   };
 
-  // Handler for cancelling edit
-  const handleCancelEdit = () => {
-    setEditingProfile(false);
-  };
+  const handleCancelEdit = () => setEditingProfile(false);
 
-  // Main content rendering logic
   const renderContent = () => {
     if (selected === 'profile') {
-      if (editingProfile) {
-        return <EditProfile profile={profileData} onSave={handleSaveProfile} onCancel={handleCancelEdit} />;
-      }
-      return <Profile onEdit={handleEditProfile} />;
+      return editingProfile ? (
+        <EditProfile
+          profile={profileData}
+          onSave={handleSaveProfile}
+          onCancel={handleCancelEdit}
+        />
+      ) : (
+        <Profile
+          profile={profileData}
+          onEdit={handleEditProfile}
+        />
+      );
     }
-
     if (selected === 'attended') return <AttendedEvents />;
-    if (selected === 'chatfriends') return <ChatFriends />;
-    if (selected === 'notifications') return <Notifications />;
-
-    if (selected === 'home') {
-      // Redirect to Landing page
-      window.location.href = '/';
-      return null;
-    }
-
-    return <p>Section not found.</p>;
+    return <p style={{ color: '#ccc' }}>Section not found.</p>;
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
-      {/* Sidebar */}
-      <aside style={{ width: '200px', borderRight: '1px solid #ccc' }}>
-        <nav>
-          <ul>
-            {SIDEBAR_LINKS.map(link => (
-              <li key={link.id}>
-                <button
-                  onClick={() => handleSelect(link.id)}
-                  style={{
-                    background: selected === link.id ? '#ddd' : 'transparent',
-                    border: 'none',
-                    padding: '10px',
-                    width: '100%',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {link.label}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </nav>
-      </aside>
+    <>
+      <style>{`
+        html, body {
+          margin: 0;
+          padding: 0;
+          background-color: #1a001a;
+          font-family: 'Poppins', sans-serif;
+        }
+      `}</style>
+      <div style={{ display: 'flex', minHeight: '100vh' }}>
+        <aside style={{ width: '220px', backgroundColor: '#121212', boxShadow: '0 0 15px #00bfff' }}>
+          <nav>
+            <ul style={{ listStyle: 'none', padding: 0 }}>
+              {SIDEBAR_LINKS.map(link => (
+                <li key={link.id}>
+                  <button
+                    onClick={() => handleSelect(link.id)}
+                    style={{
+                      background: selected === link.id ? '#00bfff' : 'transparent',
+                      color: selected === link.id ? '#121212' : '#f0f0f0',
+                      border: 'none',
+                      padding: '15px 20px',
+                      width: '100%',
+                      textAlign: 'left',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      boxShadow: selected === link.id ? '0 0 10px #00bfff' : 'none',
+                      transition: '0.3s ease',
+                    }}
+                  >
+                    {link.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        </aside>
 
-      {/* Main content */}
-      <main style={{ flex: 1, padding: '1rem' }}>
-        {renderContent()}
-      </main>
-    </div>
+        <main style={{ flex: 1, padding: '2rem', color: '#f0f0f0' }}>
+          {renderContent()}
+        </main>
+      </div>
+    </>
   );
+};
+
+const inputStyle = {
+  padding: '10px',
+  borderRadius: '6px',
+  border: '2px solid #00bfff',
+  backgroundColor: '#222',
+  color: '#f0f0f0',
+  fontSize: '1rem',
+  boxShadow: '0 0 10px #00bfff',
+  outline: 'none',
+};
+
+const buttonStyle = {
+  marginRight: '10px',
+  padding: '10px 20px',
+  backgroundColor: '#00bfff',
+  color: '#121212',
+  border: 'none',
+  borderRadius: '6px',
+  cursor: 'pointer',
+  fontWeight: 'bold',
+  boxShadow: '0 0 10px #00bfff',
 };
 
 export default Dashboard;
