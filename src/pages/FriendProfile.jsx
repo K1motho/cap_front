@@ -16,6 +16,8 @@ const FriendsPage = () => {
   const [errorProfile, setErrorProfile] = useState(null);
   const [profileData, setProfileData] = useState(null);
 
+  const [shareStatus, setShareStatus] = useState(''); // <-- For share feedback
+
   const token = localStorage.getItem('access_token');
   const userId = localStorage.getItem('userId');
   const navigate = useNavigate();
@@ -155,6 +157,37 @@ const FriendsPage = () => {
     navigate('/chat', { state: { chatWith: profileData.id } });
   };
 
+  // Share button handler
+  const inviteUrl = `https://wapinalini.com/invite/${userId}`;
+
+  const handleShareInvite = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Wapi Na Lini - Friend Invite',
+          text: 'Join me on Wapi Na Lini! Scan this QR code or use the link.',
+          url: inviteUrl,
+        });
+        setShareStatus('Invite shared successfully!');
+      } catch (err) {
+        setShareStatus('Share canceled or failed.');
+        console.error('Share error:', err);
+      }
+    } else {
+      // Fallback: copy to clipboard
+      try {
+        await navigator.clipboard.writeText(inviteUrl);
+        setShareStatus('Invite URL copied to clipboard!');
+      } catch (err) {
+        setShareStatus('Failed to copy invite URL.');
+        console.error('Clipboard error:', err);
+      }
+    }
+
+    // Clear status message after 3 seconds
+    setTimeout(() => setShareStatus(''), 3000);
+  };
+
   return (
     <div
       style={{
@@ -245,7 +278,7 @@ const FriendsPage = () => {
             </h3>
             {userId ? (
               <>
-                <QRCode value={`https://wapinalini.com/invite/${userId}`} size={220} />
+                <QRCode value={inviteUrl} size={220} />
                 <p
                   style={{
                     marginTop: '16px',
@@ -255,8 +288,42 @@ const FriendsPage = () => {
                     userSelect: 'text',
                   }}
                 >
-                  https://wapinalini.com/invite/{userId}
+                  {inviteUrl}
                 </p>
+
+                <button
+                  onClick={handleShareInvite}
+                  style={{
+                    marginTop: '12px',
+                    padding: '10px 18px',
+                    backgroundColor: '#4caf50',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                    transition: 'background-color 0.25s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#388e3c')}
+                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#4caf50')}
+                >
+                  Share Invite
+                </button>
+
+                {shareStatus && (
+                  <p
+                    style={{
+                      marginTop: '10px',
+                      fontSize: '13px',
+                      color: '#2e7d32',
+                      fontWeight: '600',
+                      userSelect: 'none',
+                    }}
+                  >
+                    {shareStatus}
+                  </p>
+                )}
               </>
             ) : (
               <p style={{ color: '#d32f2f', fontWeight: '600' }}>
