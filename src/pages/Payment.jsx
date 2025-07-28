@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import QRCode from 'react-qr-code';
 import axios from 'axios';
+import { toPng } from 'html-to-image';
 
 const Payment = () => {
-  const { id, method } = useParams(); // Get event ID and method from URL
+  const { id, method } = useParams();
   const navigate = useNavigate();
   const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
@@ -19,7 +20,8 @@ const Payment = () => {
   const [successMsg, setSuccessMsg] = useState('');
   const [showQR, setShowQR] = useState(false);
 
-  // 🚨 Redirect to login if not authenticated
+  const qrRef = useRef(null);
+
   useEffect(() => {
     const token = localStorage.getItem('access_token');
     if (!token) {
@@ -31,15 +33,11 @@ const Payment = () => {
     const fetchEvent = async () => {
       try {
         const res = await axios.get(`https://app.ticketmaster.com/discovery/v2/events/${id}.json`, {
-          params: {
-            apikey: import.meta.env.VITE_TICKET_KEY,
-          },
+          params: { apikey: import.meta.env.VITE_TICKET_KEY },
         });
 
         const ticketPrice = res.data?.priceRanges?.[0]?.min || 100;
-        console.log('Fetched ticket price:', ticketPrice);
-
-        setEvent({ ...res.data, price: ticketPrice }); // attach price to event
+        setEvent({ ...res.data, price: ticketPrice });
       } catch (err) {
         console.error('Failed to fetch event:', err);
       }
@@ -60,22 +58,17 @@ const Payment = () => {
         eventId: id,
         name,
         paymentMethod: method,
-        amount: event?.price || 1000, // fallback if event is null
+        amount: event?.price || 1000,
       };
 
       if (method === 'mpesa') {
-        const cleanedPhone = phone
-          .trim()
-          .replace(/^(\+254|254|0)/, '254'); // forces start with 254
+        const cleanedPhone = phone.trim().replace(/^(\+254|254|0)/, '254');
         payload.phone = cleanedPhone;
-
       } else if (method === 'card') {
         payload.cardNumber = cardNumber;
         payload.expiry = expiry;
         payload.cvv = cvv;
       }
-
-      console.log('Payment request payload:', payload);
 
       const token = localStorage.getItem('access_token');
 
@@ -88,10 +81,7 @@ const Payment = () => {
         body: JSON.stringify(payload),
       });
 
-      console.log('Payment response status:', response.status);
       const responseData = await response.json().catch(() => null);
-      console.log('Payment response data:', responseData);
-
       if (!response.ok) {
         let message = 'Payment failed.';
         if (responseData) {
@@ -113,6 +103,20 @@ const Payment = () => {
   const qrValue = event
     ? `Event: ${event.name}\nDate: ${event.dates?.start?.localDate}\nTime: ${event.dates?.start?.localTime}\nVenue: ${event._embedded?.venues?.[0]?.name}\nName: ${name}`
     : '';
+
+  const handleDownloadQR = async () => {
+    if (qrRef.current === null) return;
+
+    try {
+      const dataUrl = await toPng(qrRef.current);
+      const link = document.createElement('a');
+      link.download = 'qr_code.png';
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      console.error('Failed to generate image:', err);
+    }
+  };
 
   return (
     <>
@@ -308,7 +312,33 @@ const Payment = () => {
           {showQR && (
             <div style={{ marginTop: '30px', textAlign: 'center' }}>
               <h3>QR Code (Proof of Payment)</h3>
-              <QRCode value={qrValue} size={200} />
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                <div
+                  ref={qrRef}
+                  style={{
+                    background: 'white',
+                    padding: '16px',
+                    borderRadius: '8px',
+                    display: 'inline-block',
+                  }}
+                >
+                  <QRCode value={qrValue} size={200} />
+                </div>
+                <button
+                  onClick={handleDownloadQR}
+                  style={{
+                    background: '#5f1d78',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '10px 20px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                  }}
+                >
+                  Download QR Code
+                </button>
+              </div>
             </div>
           )}
         </div>

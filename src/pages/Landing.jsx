@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 const ITEMS_PER_PAGE = 10;
 
-const Testing = () => {
+const Landing = () => {
   const [events, setEvents] = useState([]);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -52,7 +52,7 @@ const Testing = () => {
 
   useEffect(() => {
     fetchEvents(0, true);
-  }, []);
+  }, );
 
   const handleSearch = () => {
     setPage(0);
@@ -76,13 +76,12 @@ const Testing = () => {
   };
 
   const handleNavigate = (e, id) => {
-    e.stopPropagation(); // prevent bubbling to parent div's onClick
+    e.stopPropagation();
     navigate(`/event/${id}`);
   };
 
   return (
     <>
-      {/* Global CSS Reset */}
       <style>{`
         html, body {
           margin: 0;
@@ -102,7 +101,6 @@ const Testing = () => {
       `}</style>
 
       <div style={{ backgroundColor: "#0a0a0a", color: "#f3f3f3", minHeight: "100vh", padding: "20px" }}>
-        {/* Hero Section */}
         <section
           style={{
             maxWidth: "1000px",
@@ -125,7 +123,6 @@ const Testing = () => {
           </p>
         </section>
 
-        {/* Search Bar */}
         <div
           style={{
             display: "flex",
@@ -179,7 +176,6 @@ const Testing = () => {
           </button>
         </div>
 
-        {/* Events Grid */}
         <div
           style={{
             maxWidth: "1000px",
@@ -211,6 +207,9 @@ const Testing = () => {
                   boxShadow: "0 4px 8px rgba(0,0,0,0.3)",
                   cursor: "pointer",
                   transition: "all 0.3s ease",
+                  display: "flex",
+                  flexDirection: "column",
+                  height: "100%",
                 }}
                 onClick={() => navigate(`/event/${event.id}`)}
               >
@@ -225,7 +224,6 @@ const Testing = () => {
                     marginBottom: "10px",
                   }}
                 />
-                {/* Make title clickable */}
                 <h2
                   onClick={(e) => handleNavigate(e, event.id)}
                   style={{
@@ -264,39 +262,40 @@ const Testing = () => {
                     </button>
                   )}
                 </p>
-                <p><strong>Date:</strong> {new Date(event.dates?.start?.localDate).toLocaleString()}</p>
-                <p><strong>Venue:</strong> {event._embedded?.venues?.[0]?.name || "TBA"}</p>
-                <p><strong>Location:</strong> {event._embedded?.venues?.[0]?.city?.name || "Unknown"}, {event._embedded?.venues?.[0]?.country?.name || ""}</p>
-                {/* Make status clickable */}
-                <div
-                  onClick={(e) => handleNavigate(e, event.id)}
-                  style={{
-                    display: "inline-block",
-                    padding: "6px 12px",
-                    marginTop: "10px",
-                    border: `2px solid ${isOnSale ? "#00ffb3" : "#ff073a"}`,
-                    color: isOnSale ? "#00ffb3" : "#ff073a",
-                    fontWeight: "bold",
-                    borderRadius: "999px",
-                    fontSize: "0.9rem",
-                    backgroundColor: "#121212",
-                    cursor: "pointer",
-                    userSelect: "none",
-                  }}
-                  tabIndex={0}
-                  role="button"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleNavigate(e, event.id);
-                  }}
-                >
-                  {status.toUpperCase()}
+
+                <div style={{ marginTop: "auto" }}>
+                  <p><strong>Date:</strong> {new Date(event.dates?.start?.localDate).toLocaleString()}</p>
+                  <p><strong>Venue:</strong> {event._embedded?.venues?.[0]?.name || "TBA"}</p>
+                  <p><strong>Location:</strong> {event._embedded?.venues?.[0]?.city?.name || "Unknown"}, {event._embedded?.venues?.[0]?.country?.name || ""}</p>
+                  <div
+                    onClick={(e) => handleNavigate(e, event.id)}
+                    style={{
+                      display: "inline-block",
+                      padding: "6px 12px",
+                      marginTop: "10px",
+                      border: `2px solid ${isOnSale ? "#00ffb3" : "#ff073a"}`,
+                      color: isOnSale ? "#00ffb3" : "#ff073a",
+                      fontWeight: "bold",
+                      borderRadius: "999px",
+                      fontSize: "0.9rem",
+                      backgroundColor: "#121212",
+                      cursor: "pointer",
+                      userSelect: "none",
+                    }}
+                    tabIndex={0}
+                    role="button"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleNavigate(e, event.id);
+                    }}
+                  >
+                    {status.toUpperCase()}
+                  </div>
                 </div>
               </div>
             );
           })}
         </div>
 
-        {/* Load More Button */}
         {hasMore && (
           <div style={{ textAlign: "center", marginTop: "40px" }}>
             <button
@@ -323,4 +322,4 @@ const Testing = () => {
   );
 };
 
-export default Testing;
+export default Landing;
