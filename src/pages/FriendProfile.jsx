@@ -101,7 +101,7 @@ const FriendsPage = () => {
     //auto refresh
   const interval = setInterval(() => {
      fetchFriends();
-      }, 30000000);
+      }, 30000);
 
       return()=> clearInterval(interval);
 
@@ -136,7 +136,7 @@ const FriendsPage = () => {
   // Remove a friend
   const handleUnfriend = async (friendId) => {
     try {
-      await axios.delete(`${API_BASE}/api/friends/${friendId}/`, {
+      await axios.delete(`${API_BASE}/api/friends/delete/${friendId}/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       toast.success("Friend removed");

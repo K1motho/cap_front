@@ -2,13 +2,16 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { useNavigate } from "react-router-dom"; // ✅ added
 
 const backendURL = import.meta.env.VITE_BACKEND_URL;
 
 const Notifications = () => {
   const [notifications, setNotifications] = useState([]);
   const [processingIds, setProcessingIds] = useState([]);
-  const token = localStorage.getItem("access_token"); // fixed typo here
+  const token = localStorage.getItem("access_token");
+
+  const navigate = useNavigate(); // ✅ added
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -114,7 +117,33 @@ const Notifications = () => {
         `}
       </style>
 
-      <div style={{ minHeight: "100vh", width: "100%", padding: "20px" }}>
+      <div
+        style={{
+          minHeight: "100vh",
+          width: "100%",
+          padding: "20px",
+          position: "relative", // ✅ needed for absolute positioning
+        }}
+      >
+        {/* ✅ Top-right Button */}
+        <button
+          onClick={() => navigate("/friendprofile")}
+          style={{
+            position: "absolute",
+            top: "20px",
+            right: "60px",
+            backgroundColor: "#ff4d6d",
+            color: "#fff",
+            padding: "10px 15px",
+            border: "none",
+            borderRadius: "6px",
+            cursor: "pointer",
+            zIndex: 10,
+          }}
+        >
+          Friend Profile
+        </button>
+
         <h1 style={{ fontSize: "2rem", marginBottom: "20px" }}>Notifications</h1>
 
         <button
