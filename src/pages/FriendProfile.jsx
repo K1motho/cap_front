@@ -97,9 +97,18 @@ const FriendsPage = () => {
         setLoadingFriends(false);
       }
     };
-
     fetchFriends();
+    //auto refresh
+  const interval = setInterval(() => {
+     fetchFriends();
+      }, 30000000);
+
+      return()=> clearInterval(interval);
+
+    
   }, [token, API_BASE]);
+
+  
 
   // Fetch friend events
   useEffect(() => {
