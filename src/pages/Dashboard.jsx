@@ -168,7 +168,7 @@ const AttendedEvents = () => {
       <ul>
         {events.map(ev => (
           <li key={ev.id} style={{ color: '#eee' }}>
-            {ev.name} - {ev.date}
+            {ev.title} - {ev.date}
           </li>
         ))}
       </ul>

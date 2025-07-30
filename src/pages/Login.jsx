@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import axios from '../utils';
 
 // Simple JWT decode function
@@ -21,6 +21,10 @@ function parseJwt(token) {
 
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // The page the user tried to visit before login (fallback to /dashboard)
+  const from = location.state?.from?.pathname || '/dashboard';
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -33,7 +37,7 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const response = await axios.post('auth/login/', { username, password });
+      const response = await axios.post('login/', { username, password });
 
       if (response.data.access && response.data.refresh) {
         localStorage.setItem('access_token', response.data.access);
@@ -46,7 +50,8 @@ const Login = () => {
           console.warn('Could not extract userId from token');
         }
 
-        navigate('/dashboard', { replace: true });
+        // Redirect user back to original page after login
+        navigate(from, { replace: true });
       } else {
         setError('Login failed: Invalid response');
       }

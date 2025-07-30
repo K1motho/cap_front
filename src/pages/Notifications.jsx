@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const Notifications = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [processingIds, setProcessingIds] = useState([]);
 
   const token = localStorage.getItem('access_token');
   const backendURL = import.meta.env.VITE_BACKEND_URL || '';
@@ -12,7 +15,6 @@ const Notifications = () => {
   useEffect(() => {
     const fetchNotifications = async () => {
       if (!token) {
-        console.log('[DEBUG] No access token found in localStorage');
         setError('Please log in to view notifications.');
         setLoading(false);
         return;
@@ -21,38 +23,17 @@ const Notifications = () => {
       setLoading(true);
       setError(null);
 
-      const url = `${backendURL}/api/notifications/`;
-      console.log('[DEBUG] Fetching notifications from:', url);
-
       try {
-        const res = await axios.get(url, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+        const res = await axios.get(`${backendURL}/api/notifications/`, {
+          headers: { Authorization: `Bearer ${token}` },
         });
-        console.log('[DEBUG] Response received:', res);
-
         if (Array.isArray(res.data)) {
           setNotifications(res.data);
-          console.log('[DEBUG] Notifications set:', res.data.length);
         } else {
-          console.warn('[DEBUG] Unexpected notifications format:', res.data);
           setError('Invalid notifications format.');
         }
-      } catch (err) {
-        console.error('[DEBUG] Axios error fetching notifications:', err);
-        if (err.response) {
-          console.error('[DEBUG] Response data:', err.response.data);
-          console.error('[DEBUG] Response status:', err.response.status);
-          console.error('[DEBUG] Response headers:', err.response.headers);
-          setError(`Failed to load notifications: ${err.response.status} ${err.response.statusText}`);
-        } else if (err.request) {
-          console.error('[DEBUG] No response received, request made:', err.request);
-          setError('No response from server.');
-        } else {
-          console.error('[DEBUG] Error setting up request:', err.message);
-          setError('Request setup error.');
-        }
+      } catch {
+        setError('Failed to load notifications.');
       } finally {
         setLoading(false);
       }
@@ -62,80 +43,100 @@ const Notifications = () => {
   }, [token, backendURL]);
 
   const markAllAsRead = async () => {
-    if (!token) {
-      console.log('[DEBUG] Cannot mark all as read without token');
-      return;
-    }
+    if (!token) return;
 
     try {
-      console.log('[DEBUG] Marking all notifications as read...');
       await axios.post(
         `${backendURL}/api/notifications/mark-all-read/`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      // Update UI locally for instant feedback:
-      setNotifications(notifications.map(n => ({ ...n, read: true })));
-      console.log('[DEBUG] All notifications marked as read locally');
-    } catch (err) {
-      console.error('[DEBUG] Failed to mark all as read', err);
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    } catch {
+      toast.error('Failed to mark notifications as read.');
     }
   };
 
-  const handleNotificationClick = notif => {
-    console.log('[DEBUG] Clicked notification:', notif);
-    // Future: navigate to related page or mark this notification read individually
+  const handleAccept = async (notif) => {
+    if (processingIds.includes(notif.id)) return;
+    setProcessingIds((prev) => [...prev, notif.id]);
+
+    try {
+      await axios.post(
+        `${backendURL}/api/friend-requests/accept/`,
+        { sender_id: notif.sender_id },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      setNotifications((prev) =>
+        prev.filter((n) => n.id !== notif.id)
+      );
+      toast.success('Friend request accepted!');
+    } catch {
+      toast.error('Failed to accept friend request');
+    } finally {
+      setProcessingIds((prev) => prev.filter((id) => id !== notif.id));
+    }
+  };
+
+  const handleReject = async (notif) => {
+    if (processingIds.includes(notif.id)) return;
+    setProcessingIds((prev) => [...prev, notif.id]);
+
+    try {
+      await axios.post(
+        `${backendURL}/api/friend-requests/reject/`,
+        { sender_id: notif.sender_id },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      setNotifications((prev) =>
+        prev.filter((n) => n.id !== notif.id)
+      );
+      toast.info('Friend request rejected.');
+    } catch {
+      toast.error('Failed to reject friend request');
+    } finally {
+      setProcessingIds((prev) => prev.filter((id) => id !== notif.id));
+    }
   };
 
   return (
-    <>
-      {/* Global CSS Reset + Gradient Animation */}
-      <style>{`
-        html, body {
-          margin: 0; padding: 0;
-          background-color: #0a0a0a;
-          font-family: 'Poppins', sans-serif;
-          color: #f3f3f3;
-          min-height: 100vh;
-        }
-        * {
-          box-sizing: border-box;
-        }
-        @keyframes gradientShift {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
-      `}</style>
-
+    <div style={{
+      background: '#000',
+      minHeight: '100vh',
+      padding: '40px 20px',
+      margin: 0,
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'start',
+      boxSizing: 'border-box'
+    }}>
+      <ToastContainer position="top-right" autoClose={3000} />
       <div
         style={{
           maxWidth: '700px',
-          margin: '40px auto',
+          width: '100%',
           padding: '24px',
           background: 'linear-gradient(135deg, #030303, #3a003f, #1a002b)',
           color: '#dedcf5',
           borderRadius: '16px',
           boxShadow: '0 0 30px rgba(255,0,120,0.5)',
-          animation: 'gradientShift 20s ease infinite',
-          backgroundSize: '600% 600%',
           display: 'flex',
           flexDirection: 'column',
           minHeight: '80vh',
           userSelect: 'none',
         }}
       >
-        <h1
-          style={{
-            fontSize: '2.5rem',
-            fontWeight: '800',
-            marginBottom: '24px',
-            color: '#ff4c98',
-            textAlign: 'center',
-            textShadow: '0 0 8px #ff4c98',
-            userSelect: 'text',
-          }}
-        >
+        <h1 style={{
+          fontSize: '2.5rem',
+          fontWeight: '800',
+          marginBottom: '24px',
+          color: '#ff4c98',
+          textAlign: 'center',
+          textShadow: '0 0 8px #ff4c98',
+          userSelect: 'text',
+        }}>
           Notifications
         </h1>
 
@@ -143,11 +144,6 @@ const Notifications = () => {
           <button
             onClick={markAllAsRead}
             disabled={notifications.every(n => n.read) || loading}
-            title={
-              notifications.every(n => n.read)
-                ? 'All notifications are already read'
-                : 'Mark all as read'
-            }
             style={{
               backgroundColor: '#c9004d',
               color: 'white',
@@ -176,35 +172,14 @@ const Notifications = () => {
           </button>
         </div>
 
-        {loading && (
-          <p style={{ textAlign: 'center', color: '#aaaaaa', userSelect: 'text' }}>
-            Loading notifications...
-          </p>
-        )}
-        {error && (
-          <p style={{ textAlign: 'center', color: '#ff4c6d', fontWeight: '700', userSelect: 'text' }}>
-            {error}
-          </p>
-        )}
-        {!loading && notifications.length === 0 && (
-          <p style={{ textAlign: 'center', color: '#aaaaaa', userSelect: 'text' }}>
-            No notifications found.
-          </p>
-        )}
+        {loading && <p style={{ textAlign: 'center', color: '#aaaaaa', userSelect: 'text' }}>Loading notifications...</p>}
+        {error && <p style={{ textAlign: 'center', color: '#ff4c6d', fontWeight: '700', userSelect: 'text' }}>{error}</p>}
+        {!loading && notifications.length === 0 && <p style={{ textAlign: 'center', color: '#aaaaaa', userSelect: 'text' }}>No notifications found.</p>}
 
-        <ul
-          style={{
-            listStyleType: 'none',
-            padding: 0,
-            margin: 0,
-            overflowY: 'auto',
-            flexGrow: 1,
-          }}
-        >
+        <ul style={{ listStyleType: 'none', padding: 0, margin: 0, overflowY: 'auto', flexGrow: 1 }}>
           {notifications.map((notif) => (
             <li
               key={notif.id}
-              onClick={() => handleNotificationClick(notif)}
               style={{
                 border: '2px solid',
                 borderColor: notif.read ? '#5f1d78' : '#ff4c98',
@@ -213,20 +188,8 @@ const Notifications = () => {
                 padding: '18px 22px',
                 marginBottom: '18px',
                 borderRadius: '14px',
-                cursor: 'pointer',
-                boxShadow: notif.read
-                  ? 'none'
-                  : '0 0 15px 3px rgba(255, 76, 152, 0.6)',
-                transition: 'background-color 0.3s, box-shadow 0.3s',
                 userSelect: 'text',
-              }}
-              onMouseEnter={e => {
-                if (!notif.read) e.currentTarget.style.backgroundColor = '#66004d';
-                else e.currentTarget.style.backgroundColor = '#2a002a';
-              }}
-              onMouseLeave={e => {
-                if (!notif.read) e.currentTarget.style.backgroundColor = '#3a003f';
-                else e.currentTarget.style.backgroundColor = '#1a002b';
+                position: 'relative',
               }}
             >
               <p style={{ fontWeight: '700', fontSize: '1.1rem', marginBottom: '10px' }}>
@@ -238,11 +201,47 @@ const Notifications = () => {
               <small style={{ fontSize: '0.85rem', color: '#777' }}>
                 {notif.createdAt ? new Date(notif.createdAt).toLocaleString() : 'Unknown time'}
               </small>
+
+              {notif.type === 'friend_request' && (
+                <div style={{ marginTop: '12px' }}>
+                  <button
+                    disabled={processingIds.includes(notif.id)}
+                    onClick={() => handleAccept(notif)}
+                    style={{
+                      backgroundColor: '#4caf50',
+                      color: 'white',
+                      border: 'none',
+                      padding: '8px 14px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      marginRight: '12px',
+                      opacity: processingIds.includes(notif.id) ? 0.6 : 1,
+                    }}
+                  >
+                    Accept
+                  </button>
+                  <button
+                    disabled={processingIds.includes(notif.id)}
+                    onClick={() => handleReject(notif)}
+                    style={{
+                      backgroundColor: '#e53935',
+                      color: 'white',
+                      border: 'none',
+                      padding: '8px 14px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      opacity: processingIds.includes(notif.id) ? 0.6 : 1,
+                    }}
+                  >
+                    Reject
+                  </button>
+                </div>
+              )}
             </li>
           ))}
         </ul>
       </div>
-    </>
+    </div>
   );
 };
 

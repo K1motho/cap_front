@@ -46,7 +46,7 @@ const Register = () => {
   const checkUsername = async () => {
     if (!formData.username) return;
     try {
-      const res = await axios.get(`${BACKEND_URL}/api/auth/check-username`, {
+      const res = await axios.get(`${BACKEND_URL}/api/check-username/`, {
         params: { username: formData.username },
       });
       if (!res.data.available) {
@@ -63,7 +63,7 @@ const Register = () => {
   const checkEmail = async () => {
     if (!formData.email) return;
     try {
-      const res = await axios.get(`${BACKEND_URL}/api/auth/check-email`, {
+      const res = await axios.get(`${BACKEND_URL}/api/check-email/`, {
         params: { email: formData.email },
       });
       if (!res.data.available) {
@@ -93,7 +93,7 @@ const Register = () => {
 
     try {
       const { username, email, password } = formData;
-      const res = await axios.post(`${BACKEND_URL}/api/auth/register/`, {
+      const res = await axios.post(`${BACKEND_URL}/api/register/`, {
         username,
         email,
         password,

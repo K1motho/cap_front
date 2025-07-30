@@ -1,5 +1,7 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 import Navbar from './Components/Navbar';
 import Footer from './Components/Footer';
@@ -17,6 +19,8 @@ import ErrorPage from './pages/Error404';
 import Wishlist from './pages/Wishlist';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import AcceptInvite from './pages/AcceptInvite'; // adjust path as needed
+
 
 // Single layout wrapper for all routes
 const Layout = ({ children }) => (
@@ -29,20 +33,26 @@ const Layout = ({ children }) => (
 
 const App = () => {
   return (
-    <Routes>
-      <Route path="/" element={<Layout><Landing /></Layout>} />
-      <Route path="/event/:id" element={<Layout><EventDetails /><Wishlist /></Layout>} />
-      <Route path="/notifications" element={<Layout><Notifications /></Layout>} />
-      <Route path="/payment/:method/:id" element={<Layout><Payment /></Layout>} />
-      <Route path="/chat" element={<Layout><ChatFriend /></Layout>} />
-      <Route path="/friendprofile" element={<Layout><FriendProfile /></Layout>} />
-      <Route path="/login" element={<Layout><Login /></Layout>} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
-       <Route path="/reset-password/:uidb64/:token/" element={<ResetPassword />} />
-      <Route path="/register" element={<Layout><Register /></Layout>} />
-      <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
-      <Route path="*" element={<Layout><ErrorPage /></Layout>} />
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/" element={<Layout><Landing /></Layout>} />
+        <Route path="/event/:id" element={<Layout><EventDetails /><Wishlist /></Layout>} />
+        <Route path="/notifications" element={<Layout><Notifications /></Layout>} />
+        <Route path="/payment/:method/:id" element={<Layout><Payment /></Layout>} />
+        <Route path="/chat" element={<Layout><ChatFriend /></Layout>} />
+        <Route path="/friendprofile" element={<Layout><FriendProfile /></Layout>} />
+        <Route path="/login" element={<Layout><Login /></Layout>} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password/:uidb64/:token/" element={<ResetPassword />} />
+        <Route path="/register" element={<Layout><Register /></Layout>} />
+        <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
+        <Route path="/accept-invite/:inviteId" element={<AcceptInvite />} />
+        <Route path="*" element={<Layout><ErrorPage /></Layout>} />
+      </Routes>
+
+      {/* ✅ Toast Container for all routes */}
+      <ToastContainer position="top-right" autoClose={3000} theme="colored" />
+    </>
   );
 };
 

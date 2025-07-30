@@ -72,6 +72,7 @@ const Payment = () => {
 
       const token = localStorage.getItem('access_token');
 
+      // Initiate payment request
       const response = await fetch(`${backendUrl}/api/payments/initiate/`, {
         method: 'POST',
         headers: {
@@ -88,6 +89,29 @@ const Payment = () => {
           message = responseData.message || JSON.stringify(responseData) || message;
         }
         throw new Error(message);
+      }
+
+      // Payment success - add attended event
+      if (token && event) {
+        const attendedPayload = {
+          event_id: id,
+          title: event.name,
+          date: event.dates?.start?.localDate || '',
+          image_url: event.images?.[0]?.url || '',
+        };
+
+        try {
+          await axios.post(
+            `${backendUrl}/api/attended-events/`,
+            attendedPayload,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+        } catch (attendedErr) {
+          console.error('Failed to save attended event:', attendedErr);
+          // Optionally handle this error (show warning) but do not block user
+        }
       }
 
       setSuccessMsg('Payment successful!');
