@@ -1,59 +1,57 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
+const backendURL = import.meta.env.VITE_BACKEND_URL;
 
 const Notifications = () => {
   const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [processingIds, setProcessingIds] = useState([]);
-
-  const token = localStorage.getItem('access_token');
-  const backendURL = import.meta.env.VITE_BACKEND_URL || '';
+  const token = localStorage.getItem("access_token"); // fixed typo here
 
   useEffect(() => {
     const fetchNotifications = async () => {
       if (!token) {
-        setError('Please log in to view notifications.');
-        setLoading(false);
+        console.warn("No token found in localStorage");
+        toast.error("User not authenticated");
         return;
       }
 
-      setLoading(true);
-      setError(null);
-
       try {
+        console.log("Fetching notifications...");
         const res = await axios.get(`${backendURL}/api/notifications/`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (Array.isArray(res.data)) {
-          setNotifications(res.data);
-        } else {
-          setError('Invalid notifications format.');
-        }
-      } catch {
-        setError('Failed to load notifications.');
-      } finally {
-        setLoading(false);
+        console.log("Notifications fetched:", res.data);
+        setNotifications(res.data);
+      } catch (err) {
+        console.error("Failed to load notifications:", err.response || err.message);
+        toast.error(`Failed to load notifications: ${err.response?.data?.detail || err.message}`);
       }
     };
 
     fetchNotifications();
-  }, [token, backendURL]);
+  }, [token]);
 
   const markAllAsRead = async () => {
-    if (!token) return;
+    if (!token) {
+      toast.error("User not authenticated");
+      return;
+    }
 
     try {
+      console.log("Marking all notifications as read...");
       await axios.post(
         `${backendURL}/api/notifications/mark-all-read/`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-    } catch {
-      toast.error('Failed to mark notifications as read.');
+      toast.success("All notifications marked as read");
+    } catch (err) {
+      console.error("Failed to mark all as read:", err.response || err.message);
+      toast.error(`Failed to mark all as read: ${err.response?.data?.detail || err.message}`);
     }
   };
 
@@ -62,18 +60,18 @@ const Notifications = () => {
     setProcessingIds((prev) => [...prev, notif.id]);
 
     try {
-      await axios.post(
+      console.log("Accepting friend request from sender_id:", notif.sender_id);
+      const res = await axios.post(
         `${backendURL}/api/friend-requests/accept/`,
         { sender_id: notif.sender_id },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-
-      setNotifications((prev) =>
-        prev.filter((n) => n.id !== notif.id)
-      );
-      toast.success('Friend request accepted!');
-    } catch {
-      toast.error('Failed to accept friend request');
+      console.log("Friend request accepted response:", res.data);
+      toast.success("Friend request accepted");
+      setNotifications((prev) => prev.filter((n) => n.id !== notif.id));
+    } catch (err) {
+      console.error("Failed to accept friend request:", err.response || err.message);
+      toast.error(`Failed to accept friend request: ${err.response?.data?.detail || err.message}`);
     } finally {
       setProcessingIds((prev) => prev.filter((id) => id !== notif.id));
     }
@@ -84,164 +82,110 @@ const Notifications = () => {
     setProcessingIds((prev) => [...prev, notif.id]);
 
     try {
-      await axios.post(
+      console.log("Rejecting friend request from sender_id:", notif.sender_id);
+      const res = await axios.post(
         `${backendURL}/api/friend-requests/reject/`,
         { sender_id: notif.sender_id },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-
-      setNotifications((prev) =>
-        prev.filter((n) => n.id !== notif.id)
-      );
-      toast.info('Friend request rejected.');
-    } catch {
-      toast.error('Failed to reject friend request');
+      console.log("Friend request rejected response:", res.data);
+      toast.success("Friend request rejected");
+      setNotifications((prev) => prev.filter((n) => n.id !== notif.id));
+    } catch (err) {
+      console.error("Failed to reject friend request:", err.response || err.message);
+      toast.error(`Failed to reject friend request: ${err.response?.data?.detail || err.message}`);
     } finally {
       setProcessingIds((prev) => prev.filter((id) => id !== notif.id));
     }
   };
 
   return (
-    <div style={{
-      background: '#000',
-      minHeight: '100vh',
-      padding: '40px 20px',
-      margin: 0,
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'start',
-      boxSizing: 'border-box'
-    }}>
-      <ToastContainer position="top-right" autoClose={3000} />
-      <div
-        style={{
-          maxWidth: '700px',
-          width: '100%',
-          padding: '24px',
-          background: 'linear-gradient(135deg, #030303, #3a003f, #1a002b)',
-          color: '#dedcf5',
-          borderRadius: '16px',
-          boxShadow: '0 0 30px rgba(255,0,120,0.5)',
-          display: 'flex',
-          flexDirection: 'column',
-          minHeight: '80vh',
-          userSelect: 'none',
-        }}
-      >
-        <h1 style={{
-          fontSize: '2.5rem',
-          fontWeight: '800',
-          marginBottom: '24px',
-          color: '#ff4c98',
-          textAlign: 'center',
-          textShadow: '0 0 8px #ff4c98',
-          userSelect: 'text',
-        }}>
-          Notifications
-        </h1>
+    <>
+      <style>
+        {`
+          html, body, #root {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background-color: #000;
+            color: #fff;
+            font-family: sans-serif;
+          }
+        `}
+      </style>
 
-        <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-          <button
-            onClick={markAllAsRead}
-            disabled={notifications.every(n => n.read) || loading}
-            style={{
-              backgroundColor: '#c9004d',
-              color: 'white',
-              border: 'none',
-              padding: '12px 24px',
-              borderRadius: '12px',
-              fontWeight: '700',
-              cursor: notifications.every(n => n.read) || loading ? 'not-allowed' : 'pointer',
-              opacity: notifications.every(n => n.read) || loading ? 0.6 : 1,
-              boxShadow: '0 0 10px #c9004daa',
-              userSelect: 'none',
-              transition: 'background-color 0.3s',
-            }}
-            onMouseEnter={e => {
-              if (!(notifications.every(n => n.read) || loading)) {
-                e.currentTarget.style.backgroundColor = '#8b0035';
-              }
-            }}
-            onMouseLeave={e => {
-              if (!(notifications.every(n => n.read) || loading)) {
-                e.currentTarget.style.backgroundColor = '#c9004d';
-              }
-            }}
-          >
-            Mark all as read
-          </button>
-        </div>
+      <div style={{ minHeight: "100vh", width: "100%", padding: "20px" }}>
+        <h1 style={{ fontSize: "2rem", marginBottom: "20px" }}>Notifications</h1>
 
-        {loading && <p style={{ textAlign: 'center', color: '#aaaaaa', userSelect: 'text' }}>Loading notifications...</p>}
-        {error && <p style={{ textAlign: 'center', color: '#ff4c6d', fontWeight: '700', userSelect: 'text' }}>{error}</p>}
-        {!loading && notifications.length === 0 && <p style={{ textAlign: 'center', color: '#aaaaaa', userSelect: 'text' }}>No notifications found.</p>}
+        <button
+          onClick={markAllAsRead}
+          style={{
+            backgroundColor: "#6c63ff",
+            color: "#fff",
+            border: "none",
+            padding: "10px 20px",
+            marginBottom: "20px",
+            cursor: "pointer",
+            borderRadius: "5px",
+          }}
+        >
+          Mark All as Read
+        </button>
 
-        <ul style={{ listStyleType: 'none', padding: 0, margin: 0, overflowY: 'auto', flexGrow: 1 }}>
-          {notifications.map((notif) => (
-            <li
+        {notifications.length === 0 ? (
+          <p>No notifications yet.</p>
+        ) : (
+          notifications.map((notif) => (
+            <div
               key={notif.id}
               style={{
-                border: '2px solid',
-                borderColor: notif.read ? '#5f1d78' : '#ff4c98',
-                backgroundColor: notif.read ? '#1a002b' : '#3a003f',
-                color: notif.read ? '#aaa' : '#ff7eb9',
-                padding: '18px 22px',
-                marginBottom: '18px',
-                borderRadius: '14px',
-                userSelect: 'text',
-                position: 'relative',
+                border: "1px solid #444",
+                padding: "15px",
+                marginBottom: "15px",
+                borderRadius: "8px",
+                backgroundColor: notif.is_read ? "#111" : "#222",
               }}
             >
-              <p style={{ fontWeight: '700', fontSize: '1.1rem', marginBottom: '10px' }}>
-                {notif.title}
-              </p>
-              <p style={{ marginBottom: '10px', whiteSpace: 'pre-line', fontSize: '1rem' }}>
-                {notif.message}
-              </p>
-              <small style={{ fontSize: '0.85rem', color: '#777' }}>
-                {notif.createdAt ? new Date(notif.createdAt).toLocaleString() : 'Unknown time'}
-              </small>
-
-              {notif.type === 'friend_request' && (
-                <div style={{ marginTop: '12px' }}>
+              <p>{notif.content}</p>
+              <small>{new Date(notif.timestamp).toLocaleString()}</small>
+              {!notif.is_read && notif.type === "friend_request" && (
+                <div style={{ marginTop: "10px" }}>
                   <button
-                    disabled={processingIds.includes(notif.id)}
                     onClick={() => handleAccept(notif)}
                     style={{
-                      backgroundColor: '#4caf50',
-                      color: 'white',
-                      border: 'none',
-                      padding: '8px 14px',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      marginRight: '12px',
-                      opacity: processingIds.includes(notif.id) ? 0.6 : 1,
+                      backgroundColor: "#28a745",
+                      color: "#fff",
+                      padding: "8px 12px",
+                      border: "none",
+                      marginRight: "10px",
+                      cursor: "pointer",
+                      borderRadius: "4px",
                     }}
                   >
                     Accept
                   </button>
                   <button
-                    disabled={processingIds.includes(notif.id)}
                     onClick={() => handleReject(notif)}
                     style={{
-                      backgroundColor: '#e53935',
-                      color: 'white',
-                      border: 'none',
-                      padding: '8px 14px',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      opacity: processingIds.includes(notif.id) ? 0.6 : 1,
+                      backgroundColor: "#dc3545",
+                      color: "#fff",
+                      padding: "8px 12px",
+                      border: "none",
+                      cursor: "pointer",
+                      borderRadius: "4px",
                     }}
                   >
                     Reject
                   </button>
                 </div>
               )}
-            </li>
-          ))}
-        </ul>
+            </div>
+          ))
+        )}
+
+        <ToastContainer />
       </div>
-    </div>
+    </>
   );
 };
 
