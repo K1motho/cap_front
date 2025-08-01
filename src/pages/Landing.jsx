@@ -15,39 +15,43 @@ const Landing = () => {
 
   const navigate = useNavigate();
 
-const fetchEvents = async (pageNumber = 0, isNewSearch = false) => {
-  setLoading(true);
-  setError(null);
-  try {
-    const res = await axios.get(
-      `${import.meta.env.VITE_BACKEND_URL}/api/ticketmaster`,
-      {
-        params: {
-          keyword,
-          city: location,
-          page: pageNumber,
-          size: ITEMS_PER_PAGE,
-          sort: "date,asc",
-        },
+  const fetchEvents = async (pageNumber = 0, isNewSearch = false) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await axios.get(
+        `${import.meta.env.VITE_BACKEND_URL}/api/ticketmaster/`,
+        {
+          params: {
+            keyword,
+            city: location,
+            page: pageNumber,
+            size: ITEMS_PER_PAGE,
+            sort: "date,asc",
+          },
+        }
+      );
+
+      const newEvents = res.data._embedded?.events || [];
+      if (isNewSearch || pageNumber === 0) {
+        setEvents(newEvents);
+      } else {
+        setEvents((prev) => [...prev, ...newEvents]);
       }
-    );
 
-    const newEvents = res.data._embedded?.events || [];
-    if (isNewSearch || pageNumber === 0) {
-      setEvents(newEvents);
-    } else {
-      setEvents((prev) => [...prev, ...newEvents]);
+      const totalPages = res.data.page.totalPages;
+      setHasMore(pageNumber + 1 < totalPages);
+    } catch (err) {
+      console.error("Error fetching events:", err);
+      setError("Failed to load events");
+    } finally {
+      setLoading(false);
     }
+  };
 
-    const totalPages = res.data.page.totalPages;
-    setHasMore(pageNumber + 1 < totalPages);
-  } catch (err) {
-    console.error("Error fetching events:", err);
-    setError("Failed to load events");
-  } finally {
-    setLoading(false);
-  }
-};
+useEffect(() => {
+  fetchEvents(0, true);
+}, );
 
 
   useEffect(() => {

@@ -10,27 +10,26 @@ const EventDetails = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const fetchEvent = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await axios.get(`https://app.ticketmaster.com/discovery/v2/events/${id}.json`, {
-          params: {
-            apikey: import.meta.env.VITE_TICKET_KEY,
-          },
-        });
-        setEvent(res.data);
-      } catch (err) {
-        console.error('Error fetching event details:', err);
-        setError('Failed to load event details');
-      } finally {
-        setLoading(false);
-      }
-    };
+useEffect(() => {
+  const fetchEvent = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await axios.get(
+        `${import.meta.env.VITE_BACKEND_URL}/api/ticketmaster/${id}/`
+      );
+      setEvent(res.data);
+    } catch (err) {
+      console.error('Error fetching event details:', err);
+      setError('Failed to load event details');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchEvent();
-  }, [id]);
+  fetchEvent();
+}, [id]);
+
 
   const handleMpesaRedirect = () => {
     navigate(`/payment/mpesa/${id}`);

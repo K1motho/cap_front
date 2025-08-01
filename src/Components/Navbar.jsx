@@ -29,7 +29,7 @@ const Navbar = () => {
             // Fetch user profile from backend API
             const response = await axios.get(`${BACKEND_URL}/api/profile/`, {
               headers: {
-                Authorization: `Bearer ${token}`,
+                Authorization: `Bearer ${localStorage.getItem('token')}`,
               },
             });
             const picUrl = response.data.profile_picture;
